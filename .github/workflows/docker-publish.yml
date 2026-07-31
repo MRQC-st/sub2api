@@ -1,0 +1,41 @@
+name: CI Build Farm (GHCR)
+
+# Reusable cloud-build template.
+# Use when the local machine has no Docker, or the target server is too weak
+# to `docker build` (e.g. 2c2g VPS -> OOM). The GitHub runner builds the image
+# and pushes it to GHCR; the server only `docker pull` + `up -d`.
+on:
+  workflow_dispatch:
+  push:
+    branches: [ci/ghcr-build]
+    tags: ['v*']
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/mrqc-st/sub2api:patch
+          build-args: |
+            GOPROXY=https://proxy.golang.org,direct
